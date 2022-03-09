@@ -24,5 +24,11 @@ def process(num_samples):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--num_samples", default=10, type=int)
+	parser.add_argument("--n_inputs", default=500, type=int)
+	parser.add_argument("--n_neurons", default=500, type=int)
+	parser.add_argument("--cap_size", default=10, type=int)
+	parser.add_argument("--n_rounds", default=10, type=int)
+	parser.add_argument("--sparsity", default=0.05, type=int)
+
 	args = parser.parse_args()
 	process(args.num_samples)

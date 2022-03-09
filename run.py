@@ -1,8 +1,8 @@
 import numpy as np
 from model_utils import initialize_net
 
-def run(val, n_iter, step_size):
-	net, inputs = initialize_net()
+def run(val, n_iter, step_size, n_inputs, n_neurons, cap_size, n_round, sparsity):
+	net, inputs = initialize_net(n_inputs=n_inputs, n_neurons=n_neurons, cap_size=cap_size, n_rounds=n_rounds, sparsity=0.05)
 
 	obj = np.zeros(n_iter)
 	w_obj = np.zeros(n_iter)
