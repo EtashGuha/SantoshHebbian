@@ -111,8 +111,6 @@ def run_test(val):
 	periodics = np.zeros((n_rounds, n_iter, n_nets))
 	overlap_penalty = 5e-1
 	done_before = False
-	cap_size = val
-	val = 100
 	nets = [BrainNet(n_inputs, n_neurons, cap_size, n_rounds, sparsity, homeostasis=False, tau=tau, plasticity=val) for i in range(n_nets)]
 	for i, net in enumerate(nets):
 		net.reset_weights()
@@ -144,20 +142,21 @@ def run_test(val):
 				# print((all_outputs[round_idx] * all_outputs[round_idx-1]).sum())
 				# print("{} {} {}".format(round_idx > 80, (all_outputs[round_idx] * all_outputs[round_idx-1]).sum() < 2, not done_before))                
 				obj[round_idx, i, j] = (outputs[ :, np.newaxis] * outputs[ np.newaxis, :] * net.rec_adj[np.newaxis, :, :]).sum(axis=(1,2)).mean()
+			
 	for j, net in enumerate(nets):
 		greedy_results[j] = greedy(net.rec_adj, k=cap_size)
 		min_degree_results[j] = min_degree(net.rec_adj, k=cap_size)
-		extended_greedy_results[j] = extended_greedy(net.rec_adj, k=cap_size, n=0)
+		extended_greedy_results[j] = extended_greedy(net.rec_adj, k=cap_size)
 	for round_idx in range(n_rounds):
 		rounds_to_all[round_idx] = (0, val, obj[round_idx, -1, :].mean(), comps_before_after[round_idx, -1, :].mean(), periodics[round_idx, -1, :].mean(), greedy_results.mean(), min_degree_results.mean())
-	return rounds_to_all
+		
 rounds_to_all = dict()
-pool = mp.Pool(10)
+pool = mp.Pool()
 all_jobs = []
-# params = list(np.linspace(0, .5, 25))
-# params.extend(list(np.linspace(.5, 1, 10)))
-# params.extend(list(np.linspace(1, 2, 10)))
-params = [30, 50, 100, 200]
+params = list(np.linspace(0, .5, 25))
+params.extend(list(np.linspace(.5, 1, 10)))
+params.extend(list(np.linspace(1, 2, 10)))
+
 for val in params:
 	all_jobs.append(pool.apply_async(run_test, args=[val]))
 
@@ -169,10 +168,8 @@ for job in tqdm(all_jobs):
 		else:
 			rounds_to_all[key] = [temp_dict[key]]
 
-pool.close()
-pool.terminate()
 pool.join()
-
+pool.close()
 import pickle
-with open("/nethome/eguha3/SantoshHebbian/newcomers_high_round.pkl", "wb") as f:
+with open("/nethome/eguha3/SantoshHebbian/new_data.pkl", "wb") as f:
 	pickle.dump(rounds_to_all, f)

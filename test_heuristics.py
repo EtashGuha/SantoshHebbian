@@ -117,10 +117,10 @@ for val in tqdm(params):
 		min_degree_results[j] = min_degree(net.rec_adj, k=cap_size)
 		extended_greedy_results[j] = extended_greedy(net.rec_adj, k=cap_size, n=val)
 	for round_idx in range(n_rounds):
-		if round_idx in rounds_to_all:
-			rounds_to_all[round_idx].append((0, 0, 0, 0, 0, greedy_results.mean(), min_degree_results.mean(), extended_greedy_results.mean()))
+		if val in rounds_to_all:
+			rounds_to_all[val].append((0, 0, 0, 0, 0, greedy_results.mean(), min_degree_results.mean(), extended_greedy_results.mean()))
 		else:
-			rounds_to_all[round_idx] = [(0, 0, 0, 0, 0, greedy_results.mean(), min_degree_results.mean(), extended_greedy_results.mean())]
+			rounds_to_all[val] = [(0, 0, 0, 0, 0, greedy_results.mean(), min_degree_results.mean(), extended_greedy_results.mean())]
 import pickle
 with open("/nethome/eguha3/SantoshHebbian/greedy_extended.pkl", "wb") as f:
     pickle.dump(rounds_to_all, f)

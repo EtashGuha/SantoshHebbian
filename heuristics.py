@@ -40,9 +40,13 @@ def extended_greedy(adj_matrix, n=10, k = 10):
 		nodes.append(max(set(all_neighbors), key=all_neighbors.count))
 	
 	for t in range(int(n)):
-		best_node = max(graph.degree(graph.nodes() - nodes), key=itemgetter(1))[0]
 		subgraph = graph.subgraph(nodes)
-		worst_node = min(subgraph.degree(subgraph.nodes()), key=itemgetter(1))[0]
+		connectivities = [(node, len(set(graph.neighbors(node)) & set(nodes))) for node in graph.nodes() - nodes]
+		best_node, in_connectivity = max(connectivities, key=itemgetter(1))
+		worst_node, out_connectivity = min(subgraph.degree, key=itemgetter(1))
+		
+		if in_connectivity < out_connectivity:
+			break
 		nodes.remove(worst_node)
 		nodes.append(best_node)
 	return graph.subgraph(nodes).number_of_edges()

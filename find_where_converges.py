@@ -13,7 +13,7 @@ import multiprocessing as mp
 n_inputs = 500
 n_neurons = 1000
 cap_size = 30
-n_rounds = 100
+n_rounds = 5000
 n_nets = 40
 sparsity = 0.05
 
@@ -78,12 +78,12 @@ class BrainNet():
 	
 	def update_weights(self, step):
 		self.debug_rec_weights[step] = self.rec_weights
-		flattened_weights = self.rec_weights.flatten()/np.sum(self.rec_weights)
-		entropy_grad = -1 * (entropy4(flattened_weights) + np.log(flattened_weights))/(1 - flattened_weights)
-		entropy_grad = entropy_grad.reshape((n_neurons, n_neurons))
-		entropy_grad = entropy_grad - np.min(entropy_grad)
+		# flattened_weights = self.rec_weights.flatten()/np.sum(self.rec_weights)
+		# entropy_grad = -1 * (entropy4(flattened_weights) + np.log(flattened_weights))/(1 - flattened_weights)
+		# entropy_grad = entropy_grad.reshape((n_neurons, n_neurons))
+		# entropy_grad = entropy_grad - np.min(entropy_grad)
 		
-		plasticity_rule = self.activations[step-1,:][:,np.newaxis] * self.activations[step, :][np.newaxis, :] * self.rec_adj - self.tau * entropy_grad
+		plasticity_rule = self.activations[step-1,:][:,np.newaxis] * self.activations[step, :][np.newaxis, :] * self.rec_adj 
 		# print("max p: {} min p: {} max e: {} min e: {}".format(np.max(plasticity_rule), np.min(plasticity_rule), np.max(entropy_grad), np.min(entropy_grad)))
 		self.rec_weights += plasticity_rule * self.plasticity 
 		if self.homeostasis:
@@ -97,10 +97,11 @@ params = np.linspace(0, 1, num=1)
 
 def run_test(val):
 	rounds_to_all = dict()
+	print("hello")
 	tau = 0 
 	t1 = time.time()
 	n_iter = 2
-	n_nets = 20
+	n_nets = 5
 	step_size = 1e-3
 	obj = np.zeros((n_rounds, n_iter, n_nets))
 	greedy_results = np.zeros((n_nets))
@@ -108,11 +109,15 @@ def run_test(val):
 	extended_greedy_results = np.zeros((n_nets))
 	comps_before_after = np.zeros((n_rounds, n_iter, n_nets))
 	comps_before_after_two = np.zeros((n_rounds, n_iter, n_nets))
+	comps_before_after_three = np.zeros((n_rounds, n_iter, n_nets))
+	comps_before_after_four = np.zeros((n_rounds, n_iter, n_nets))
+	comps_before_after_five = np.zeros((n_rounds, n_iter, n_nets))
+	num_new_comers = np.zeros((n_rounds, n_iter, n_nets))
+
 	periodics = np.zeros((n_rounds, n_iter, n_nets))
 	overlap_penalty = 5e-1
 	done_before = False
-	cap_size = val
-	val = 100
+	
 	nets = [BrainNet(n_inputs, n_neurons, cap_size, n_rounds, sparsity, homeostasis=False, tau=tau, plasticity=val) for i in range(n_nets)]
 	for i, net in enumerate(nets):
 		net.reset_weights()
@@ -125,7 +130,7 @@ def run_test(val):
 	old_params = np.zeros((2, 6))
 	
 	for i in range(1, n_iter):
-		for j, net in enumerate(nets):
+		for j, net in tqdm(enumerate(nets)):
 			net.reset_weights()
 
 			all_outputs = net.forward(update=True)
@@ -133,9 +138,16 @@ def run_test(val):
 
 			for round_idx in range(1, n_rounds):
 				outputs = all_outputs[round_idx]
+				new_comers = np.logical_and(outputs > 0 , all_activations == 0)
 				all_activations += outputs
+				num_new_comers[round_idx, i, j] = np.sum(new_comers)
+				
+				comps_before_after_four[round_idx, i, j] = (all_outputs[round_idx] * all_outputs[round_idx-4]).sum()
+				comps_before_after_three[round_idx, i, j] = (all_outputs[round_idx] * all_outputs[round_idx-3]).sum()
 				comps_before_after_two[round_idx, i, j] = (all_outputs[round_idx] * all_outputs[round_idx-2]).sum()
 				comps_before_after[round_idx, i, j] = (all_outputs[round_idx] * all_outputs[round_idx-1]).sum()
+				comps_before_after_five[round_idx, i, j] = (all_outputs[round_idx] * all_outputs[round_idx-5]).sum()
+
 
 				if comps_before_after[round_idx, i, j] + 15 < comps_before_after_two[round_idx, i, j]:
 					periodics[round_idx, i, j] = 1
@@ -145,24 +157,27 @@ def run_test(val):
 				# print("{} {} {}".format(round_idx > 80, (all_outputs[round_idx] * all_outputs[round_idx-1]).sum() < 2, not done_before))                
 				obj[round_idx, i, j] = (outputs[ :, np.newaxis] * outputs[ np.newaxis, :] * net.rec_adj[np.newaxis, :, :]).sum(axis=(1,2)).mean()
 	for j, net in enumerate(nets):
-		greedy_results[j] = greedy(net.rec_adj, k=cap_size)
-		min_degree_results[j] = min_degree(net.rec_adj, k=cap_size)
-		extended_greedy_results[j] = extended_greedy(net.rec_adj, k=cap_size, n=0)
+		# greedy_results[j] = greedy(net.rec_adj, k=cap_size)
+		# min_degree_results[j] = min_degree(net.rec_adj, k=cap_size)
+		# extended_greedy_results[j] = extended_greedy(net.rec_adj, k=cap_size, n=0)
+		greedy_results[j] = 0
+		min_degree_results[j] = 0
+		extended_greedy_results[j] = 0
 	for round_idx in range(n_rounds):
-		rounds_to_all[round_idx] = (0, val, obj[round_idx, -1, :].mean(), comps_before_after[round_idx, -1, :].mean(), periodics[round_idx, -1, :].mean(), greedy_results.mean(), min_degree_results.mean())
+		rounds_to_all[round_idx] = (0, val, obj[round_idx, -1, :].mean(), comps_before_after[round_idx, -1, :].mean(), comps_before_after_two[round_idx, -1, :].mean(), comps_before_after_three[round_idx, -1, :].mean(), comps_before_after_four[round_idx, -1, :].mean(), comps_before_after_five[round_idx, -1, :].mean(),  periodics[round_idx, -1, :].mean(), greedy_results.mean(), min_degree_results.mean(), extended_greedy_results.mean(), num_new_comers[round_idx, -1, :].mean())
 	return rounds_to_all
 rounds_to_all = dict()
 pool = mp.Pool(10)
 all_jobs = []
-# params = list(np.linspace(0, .5, 25))
-# params.extend(list(np.linspace(.5, 1, 10)))
-# params.extend(list(np.linspace(1, 2, 10)))
-params = [30, 50, 100, 200]
+params = list(np.linspace(.001, .005, 4))
+params = [params[2]]
+breakpoint()
 for val in params:
-	all_jobs.append(pool.apply_async(run_test, args=[val]))
-
-for job in tqdm(all_jobs):
-	temp_dict = job.get()
+	# all_jobs.append(pool.apply_async(run_test, args=[val]))
+	all_jobs.append(run_test(val))
+for job in all_jobs:
+	# temp_dict = job.get()
+	temp_dict = job
 	for key in temp_dict:
 		if key in rounds_to_all:
 			rounds_to_all[key].append(temp_dict[key])
@@ -174,5 +189,5 @@ pool.terminate()
 pool.join()
 
 import pickle
-with open("/nethome/eguha3/SantoshHebbian/newcomers_high_round.pkl", "wb") as f:
+with open("/nethome/eguha3/SantoshHebbian/checking_cutoff.pkl", "wb") as f:
 	pickle.dump(rounds_to_all, f)
