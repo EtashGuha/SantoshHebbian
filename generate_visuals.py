@@ -28,14 +28,24 @@ def plot_smaller_converge(name, data):
 
 def draw_overlap_after_convergence(name, data):
 	with open(data, "rb") as f:
-		one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps = pickle.load(f)
-
+		dictionanry = pickle.load(f)
+	# breakpoint()
+	one_period_overlaps, two_period_overlaps, three_period_overlaps, num_newcomers = dictionanry[list(dictionanry.keys())[0]][0]
 	one_period_overlaps = np.asarray(one_period_overlaps)
 	two_period_overlaps = np.asarray(two_period_overlaps)
 	three_period_overlaps = np.asarray(three_period_overlaps)
 	# four_period_overlaps = np.asarray(four_period_overlaps)
+	num_newcomers = np.mean(np.mean(np.asarray(num_newcomers),axis=0), axis=1)
+	plt.plot(list(range(len(num_newcomers))), num_newcomers)
+	plt.xlabel("Round")
+	plt.ylabel("Number of newcomers")
+	plt.savefig("new_code_numnewcomers.png")
+	plt.clf()
+	# plt.hist([one_period_overlaps, two_period_overlaps - one_period_overlaps, three_period_overlaps - one_period_overlaps], bins=30, label=["one period", "two period", 'three period'])
+	plt.hist([two_period_overlaps - one_period_overlaps], bins=30, label=["two period"])
 
-	plt.hist([one_period_overlaps, two_period_overlaps - one_period_overlaps, three_period_overlaps - one_period_overlaps], bins=30, label=["one period", "two period", 'three period'])
+	breakpoint()
+	# breakpoint()
 	# plt.hist(two_period_overlaps, bins=30, label='two period')
 	plt.xlabel("Overlap Size")
 	plt.ylabel("Frequency")
@@ -313,30 +323,52 @@ def draw_interactions(name, data):
 	with open(data, "rb") as f:
 		di = pickle.load(f)
 
-	betas = []
-	nneuronss = []
-	prob_twos = []
-	stds = []
-	for key in di.keys():
-		beta, n_neurons = key
-		betas.append(beta)
-		nneuronss.append(n_neurons)
-		list_of_vals = np.squeeze(np.asarray(di[key]))
-		means = np.mean(list_of_vals, axis=1)
-		prob_twos.append((means[1] - means[0])/np.sqrt(n_neurons))
-		prob_period = (list_of_vals[1] - list_of_vals[0])/np.sqrt(n_neurons)
-		std = np.std(prob_period)
-		if std > 1/4:
+	
+	for cap_size_val_type in ["con_25", "div", "sqrt"]:
+		betas = []
+		nneuronss = []
+		prob_twos = []
+		cap_sizes = []
+		sparsity_vals = []
+		stds = []
+		cap_sizes = []
+		breakpoint()
+		for key in di.keys():		
+		
+			beta, cap_size_category, n_neurons, cap_size, sparsity_val = key
+			if cap_size_category != cap_size_val_type:
+				continue
+		
+			# if cap_size is not cap_size_type:
+			# 	continue
+			sparsity_vals.append(sparsity_val)
+
+			# cap_sizes.append(cap_size)
+			betas.append(beta)
+			nneuronss.append(n_neurons)
+			cap_sizes.append(cap_size)
+			list_of_vals = np.squeeze(np.asarray(di[key]))
 			breakpoint()
-		stds.append(std)
-	fig = plt.figure() 
-	print(betas)
-	# pr = fig.gca(projection='3d') 
-	plt.errorbar(nneuronss, prob_twos, yerr=stds, fmt='o')
-	plt.xlabel("Number of neurons")
+			means = np.mean(list_of_vals, axis=1)
+			prob_twos.append((means[1] - means[0])/cap_size)
+			prob_period = (list_of_vals[1] - list_of_vals[0])/cap_size
+			# print((means[1] - means[0])/cap_size)
+			# plt.clf()
+			# plt.hist(prob_period, bins=50)
+			# plt.savefig("prob_periodicity_beta.png")
+
+			# breakpoint()
+			std = np.std(prob_period)
+			stds.append(std)
+		plt.plot(nneuronss, prob_twos, label=cap_size_val_type)
+	# plt.xscale("log")
+	plt.xlabel("Number of Neurons")
+	plt.legend()
 	plt.ylabel("prob of two period")
 	plt.title("Prob of two period for large n")
+	# plt.legend(title="cap size")
 	plt.savefig(name)
+
 
 
 if __name__ == "__main__":

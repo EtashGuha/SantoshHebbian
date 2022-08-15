@@ -79,23 +79,21 @@ params = np.linspace(0, 1, num=1)
 def run_test(val, n_neurons, cap_size, sparsity_val):
 	tau = 0 
 	n_iter = 2
-	n_nets = 1
+	n_nets = 100
 	n_rounds = 200
 	n_inputs = 500
 	# print(n_rounds)
 	nets = [BrainNet(n_neurons, int(cap_size), n_rounds, sparsity_val, plasticity=val) for i in range(n_nets)]
 	obj = np.zeros((n_rounds, n_iter, n_nets))
 	num_new_comers = np.zeros((n_rounds, n_iter, n_nets))
-
-		
-
-	one_period_overlaps = []
-	two_period_overlaps = []
-	
+	one_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	two_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	three_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	four_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
 
 	for i in range(1, n_iter):
 
-		for j, net in enumerate(nets):
+		for j, net in tqdm(enumerate(nets)):
 			net.reset_weights()
 			all_outputs = {}
 			temp_outputs = net.forward(update=True)
@@ -104,23 +102,16 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 			all_activations = set()
 			set_again = False
 			past_convergence = False
-			for round_idx in range(1, n_rounds):
+			for round_idx in range(5, n_rounds):
 				outputs = set(all_outputs[round_idx])
 				new_comers = outputs.difference(all_activations)
 				all_activations.update(outputs)
 				# print(len(new_comers))
 				num_new_comers[round_idx, i, j] = len(new_comers)
-				if not past_convergence and round_idx > 30 and np.sum(num_new_comers[round_idx-30:round_idx, i, j]) == 0:
-					past_convergence = True
-					# breakpoint()
-					how_far = 0
-					one_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 1])))
-					two_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 2])))
-					three_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 3])))
-					four_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 4])))
-					break
-					if one_period_overlaps == []:
-						breakpoint()
+				one_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 1])))
+				two_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 2])))
+				three_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 3])))
+				four_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 4])))
 
 				# if past_convergence:
 				# 	how_far += 1
@@ -135,14 +126,8 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 				# 			breakpoint()
 				# 		break	
 	# occurence_chart = [one_period_overlaps > period_threshold, two_period_overlaps > period_threshold, three_period_overlaps > period_threshold]
-	try:
-		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, num_new_comers)
-	except:
-		one_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 1])))
-		two_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 2])))
-		three_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 3])))
-		four_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 4])))
-		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, num_new_comers)
+	
+	return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, num_new_comers)
 if __name__ == '__main__':
 	rounds_to_all = dict()
 	total_dict = {}
@@ -158,36 +143,28 @@ if __name__ == '__main__':
 				cap_size = int(n_neurons/20)
 			# for cap_size in [30]:
 			for beta in [1]:
-				for sparsity_val in [.5]:
+				for sparsity_val in [1]:
 					all_jobs = []
 					pool = mp.Pool(15)
-					params = [beta] * 2500
+					params = [beta]
 					for val in params:
-						all_jobs.append(pool.apply_async(run_test, args=[beta, int(n_neurons), int(cap_size), sparsity_val]))
-						# run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
-						# breakpoint()
-					one_period_overlaps = []
-					two_period_overlaps = []
-					three_period_overlaps = []
-					occurence_chars = []
+						one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, num_new_comers =run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
+					
+	import matplotlib.pyplot as plt
 
-					for job in tqdm(all_jobs):
-						one, two, three, four = job.get()
-						one_period_overlaps.append(one)
-						two_period_overlaps.append(two)
-						three_period_overlaps.append(three)
-						occurence_chars.append(four)
-						
-						
-					
-					if (beta, cap_size_type, n_neurons, cap_size, sparsity_val) not in total_dict:
-						total_dict[(beta, cap_size_type, n_neurons, cap_size, sparsity_val)] = []
-					
-					total_dict[(beta, cap_size_type, n_neurons, cap_size, sparsity_val)].append((one_period_overlaps, two_period_overlaps, three_period_overlaps, occurence_chars))
-					pool.close()
-					pool.terminate()
-					pool.join()
-	breakpoint()
+	plt.plot(list(range(200)), np.mean(one_period_overlaps[:, 1, :], axis=1), label="one period")
+	plt.plot(list(range(200)), np.mean(two_period_overlaps[:, 1, :], axis=1) - np.mean(one_period_overlaps[:, 1, :], axis=1), label="two period")
+	plt.plot(list(range(200)), np.mean(three_period_overlaps[:, 1, :], axis=1) - np.mean(one_period_overlaps[:, 1, :], axis=1), label="three period")
+	plt.plot(list(range(200)), np.mean(four_period_overlaps[:, 1, :], axis=1) - np.mean(two_period_overlaps[:, 1, :], axis=1), label="four period")
+
+	plt.plot(list(range(200)), np.mean(num_new_comers[:, 1, :], axis=1), label="newcomers")
+	plt.legend()
+	plt.savefig("newcomers_pls.png")
+	
+	# plt.hist([one_period_overlaps[195, 1, :], two_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :],three_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :]], label=["one period", "two", "three"])
+	# plt.legend()
+	# plt.savefig("again_hist.png")
+	# breakpoint()
 	import pickle
 	with open("/nethome/eguha3/SantoshHebbian/new_code_smooth_n_2p_con.pkl", "wb") as f:
 		pickle.dump(total_dict, f)
