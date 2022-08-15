@@ -324,7 +324,7 @@ def draw_interactions(name, data):
 		di = pickle.load(f)
 
 	
-	for cap_size_val_type in ["con_25", "div", "sqrt"]:
+	for cap_size_val_type in [1, 3, 10]:
 		betas = []
 		nneuronss = []
 		prob_twos = []
@@ -332,11 +332,10 @@ def draw_interactions(name, data):
 		sparsity_vals = []
 		stds = []
 		cap_sizes = []
-		breakpoint()
 		for key in di.keys():		
 		
 			beta, cap_size_category, n_neurons, cap_size, sparsity_val = key
-			if cap_size_category != cap_size_val_type:
+			if sparsity_val != cap_size_val_type:
 				continue
 		
 			# if cap_size is not cap_size_type:
@@ -348,7 +347,6 @@ def draw_interactions(name, data):
 			nneuronss.append(n_neurons)
 			cap_sizes.append(cap_size)
 			list_of_vals = np.squeeze(np.asarray(di[key]))
-			breakpoint()
 			means = np.mean(list_of_vals, axis=1)
 			prob_twos.append((means[1] - means[0])/cap_size)
 			prob_period = (list_of_vals[1] - list_of_vals[0])/cap_size
@@ -364,8 +362,8 @@ def draw_interactions(name, data):
 	# plt.xscale("log")
 	plt.xlabel("Number of Neurons")
 	plt.legend()
-	plt.ylabel("prob of two period")
-	plt.title("Prob of two period for large n")
+	plt.ylabel("prob of Two period")
+	plt.title("Prob of Two period for large n for given KP")
 	# plt.legend(title="cap size")
 	plt.savefig(name)
 

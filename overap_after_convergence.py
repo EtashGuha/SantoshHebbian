@@ -68,6 +68,7 @@ class BrainNet():
 		return self.activations
 	
 	def update_weights(self, step):
+
 		self.weights[np.ix_(self.idx[step], self.idx[step+1])] *= 1 + self.plasticity
 		self.weights *= self.adj
 
@@ -147,8 +148,8 @@ if __name__ == '__main__':
 	rounds_to_all = dict()
 	total_dict = {}
 		
-	for n_neurons in [1000]:
-		for cap_size_type in ["con_30"]:
+	for n_neurons in [500]:
+		for cap_size_type in ["sqrt"]:
 			if cap_size_type == "sqrt":
 				cap_size = int(np.sqrt(n_neurons))
 			elif "con" in cap_size_type:
@@ -158,10 +159,11 @@ if __name__ == '__main__':
 				cap_size = int(n_neurons/20)
 			# for cap_size in [30]:
 			for beta in [1]:
-				for sparsity_val in [.5]:
+				for kp_val in [cap_size]:
 					all_jobs = []
 					pool = mp.Pool(15)
-					params = [beta] * 2500
+					params = [beta] * 1000
+					sparsity_val = kp_val/cap_size
 					for val in params:
 						all_jobs.append(pool.apply_async(run_test, args=[beta, int(n_neurons), int(cap_size), sparsity_val]))
 						# run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
@@ -180,16 +182,15 @@ if __name__ == '__main__':
 						
 						
 					
-					if (beta, cap_size_type, n_neurons, cap_size, sparsity_val) not in total_dict:
-						total_dict[(beta, cap_size_type, n_neurons, cap_size, sparsity_val)] = []
+					if (beta, cap_size_type, n_neurons, cap_size, kp_val) not in total_dict:
+						total_dict[(beta, cap_size_type, n_neurons, cap_size, kp_val)] = []
 					
-					total_dict[(beta, cap_size_type, n_neurons, cap_size, sparsity_val)].append((one_period_overlaps, two_period_overlaps, three_period_overlaps, occurence_chars))
+					total_dict[(beta, cap_size_type, n_neurons, cap_size, kp_val)].append((one_period_overlaps, two_period_overlaps, three_period_overlaps, occurence_chars))
 					pool.close()
 					pool.terminate()
 					pool.join()
-	breakpoint()
 	import pickle
-	with open("/nethome/eguha3/SantoshHebbian/new_code_smooth_n_2p_con.pkl", "wb") as f:
+	with open("/nethome/eguha3/SantoshHebbian/debug_p1.pkl", "wb") as f:
 		pickle.dump(total_dict, f)
 
 	

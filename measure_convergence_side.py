@@ -58,13 +58,18 @@ class BrainNet():
 		self.idx = np.zeros((self.n_rounds, self.cap_size), dtype=int)
 		self.activations = np.zeros((self.n_rounds, self.n_neurons))
 
-		self.idx[0] = np.arange(self.cap_size)
+		self.idx[0] = random.sample(range(self.n_neurons), self.cap_size)
 		self.activations[0][self.idx[0]] = 1
 		for t in range(self.n_rounds-1):
-			self.idx[t+1] = self.weights[self.idx[t]].sum(axis=0).argsort()[-self.cap_size:]
+			a = self.weights[self.idx[t]].sum(axis=0)
+			b =np.random.random(a.size)
+			self.idx[t+1] = np.lexsort(np.stack((b, a), axis=0))[-self.cap_size:]
+			assert((a[np.argsort(a)[-self.cap_size:]] == a[self.idx[t+1]]).all())
+			# breakpoint()
 			self.activations[t+1][self.idx[t+1]] = 1
 			if update: 
 				self.update_weights(t)
+			
 		return self.activations
 	
 	def update_weights(self, step):
@@ -79,8 +84,8 @@ params = np.linspace(0, 1, num=1)
 def run_test(val, n_neurons, cap_size, sparsity_val):
 	tau = 0 
 	n_iter = 2
-	n_nets = 100
-	n_rounds = 200
+	n_nets = 400
+	n_rounds = 400
 	n_inputs = 500
 	# print(n_rounds)
 	nets = [BrainNet(n_neurons, int(cap_size), n_rounds, sparsity_val, plasticity=val) for i in range(n_nets)]
@@ -90,6 +95,11 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 	two_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
 	three_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
 	four_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	five_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	six_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	seven_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+	eight_period_overlaps = np.zeros((n_rounds, n_iter, n_nets))
+
 
 	for i in range(1, n_iter):
 
@@ -102,7 +112,7 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 			all_activations = set()
 			set_again = False
 			past_convergence = False
-			for round_idx in range(5, n_rounds):
+			for round_idx in range(9, n_rounds):
 				outputs = set(all_outputs[round_idx])
 				new_comers = outputs.difference(all_activations)
 				all_activations.update(outputs)
@@ -112,6 +122,10 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 				two_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 2])))
 				three_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 3])))
 				four_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 4])))
+				five_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 5])))
+				six_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 6])))
+				seven_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 7])))
+				eight_period_overlaps[round_idx, i, j] = len(outputs.intersection(set(all_outputs[round_idx - 8])))
 
 				# if past_convergence:
 				# 	how_far += 1
@@ -127,43 +141,89 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 				# 		break	
 	# occurence_chart = [one_period_overlaps > period_threshold, two_period_overlaps > period_threshold, three_period_overlaps > period_threshold]
 	
-	return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, num_new_comers)
+	return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers)
 if __name__ == '__main__':
 	rounds_to_all = dict()
 	total_dict = {}
 		
 	for n_neurons in [1000]:
-		for cap_size_type in ["con_30"]:
+		for cap_size_type in ["con_10"]:
 			if cap_size_type == "sqrt":
 				cap_size = int(np.sqrt(n_neurons))
 			elif "con" in cap_size_type:
 				cap_size = int(cap_size_type.split("_")[-1])
-				print(cap_size)
+				# print(cap_size)
 			elif cap_size_type == "div":
 				cap_size = int(n_neurons/20)
 			# for cap_size in [30]:
 			for beta in [1]:
-				for sparsity_val in [1]:
+				for sparsity_val in [.9]:
 					all_jobs = []
 					pool = mp.Pool(15)
 					params = [beta]
 					for val in params:
-						one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, num_new_comers =run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
+						one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps,five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers =run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
 					
 	import matplotlib.pyplot as plt
 
-	plt.plot(list(range(200)), np.mean(one_period_overlaps[:, 1, :], axis=1), label="one period")
-	plt.plot(list(range(200)), np.mean(two_period_overlaps[:, 1, :], axis=1) - np.mean(one_period_overlaps[:, 1, :], axis=1), label="two period")
-	plt.plot(list(range(200)), np.mean(three_period_overlaps[:, 1, :], axis=1) - np.mean(one_period_overlaps[:, 1, :], axis=1), label="three period")
-	plt.plot(list(range(200)), np.mean(four_period_overlaps[:, 1, :], axis=1) - np.mean(two_period_overlaps[:, 1, :], axis=1), label="four period")
+	one_better_mask = np.where(one_period_overlaps[-1, 1, :]  > two_period_overlaps[-1, 1, :] - one_period_overlaps[-1, 1, :])
+	two_better_mask = np.where(one_period_overlaps[-1, 1, :]  < two_period_overlaps[-1, 1, :] - one_period_overlaps[-1, 1, :])
 
-	plt.plot(list(range(200)), np.mean(num_new_comers[:, 1, :], axis=1), label="newcomers")
+	plt.plot(list(range(400)), np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="one period")
+	plt.plot(list(range(400)), np.mean(two_period_overlaps[:, 1,:], axis=(1)) - np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="two period")
+	plt.plot(list(range(400)), np.mean(three_period_overlaps[:, 1,:], axis=(1)) - np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="three period")
+	plt.plot(list(range(400)), np.mean(four_period_overlaps[:, 1,:], axis=(1)) - np.mean(two_period_overlaps[:, 1,:], axis=(1)), label="four period")
+	plt.plot(list(range(400)), np.mean(five_period_overlaps[:, 1,:], axis=(1)) - np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="five period")
+	plt.plot(list(range(400)), np.mean(six_period_overlaps[:, 1,:], axis=(1)) - np.mean(three_period_overlaps[:, 1,:], axis=(1)) - np.mean(two_period_overlaps[:, 1,:], axis=(1)) + np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="six period")
+	plt.plot(list(range(400)), np.mean(seven_period_overlaps[:, 1,:], axis=(1)) - np.mean(one_period_overlaps[:, 1,:], axis=(1)), label="seven period")
+	plt.plot(list(range(400)), np.mean(eight_period_overlaps[:, 1,:], axis=(1)) - np.mean(four_period_overlaps[:, 1,:], axis=(1)), label="eight period")
+
+
+	plt.plot(list(range(400)), np.mean(num_new_comers[:, 1, :], axis=(1)), label="newcomers")
 	plt.legend()
-	plt.savefig("newcomers_pls.png")
-	
-	# plt.hist([one_period_overlaps[195, 1, :], two_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :],three_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :]], label=["one period", "two", "three"])
+	plt.title("new sorting")
+	plt.savefig("new_sorting.png")
+	# plt.legend()
+	# plt.title("One > Two")
+	# plt.savefig("newcomers_pls_one.png")
+
+	# plt.clf()
+	# plt.plot(list(range(400)), np.mean(one_period_overlaps[:, 1, two_better_mask], axis=(1,2)), label="one period")
+	# plt.plot(list(range(400)), np.mean(two_period_overlaps[:, 1, two_better_mask], axis=(1,2)) - np.mean(one_period_overlaps[:, 1, two_better_mask], axis=(1,2)), label="two period")
+	# plt.plot(list(range(400)), np.mean(three_period_overlaps[:, 1, two_better_mask], axis=(1,2)) - np.mean(one_period_overlaps[:, 1, two_better_mask], axis=(1,2)), label="three period")
+	# plt.plot(list(range(400)), np.mean(four_period_overlaps[:, 1, two_better_mask], axis=(1,2)) - np.mean(two_period_overlaps[:, 1, two_better_mask], axis=(1,2)), label="four period")
+	# plt.title("Two > One")
+
+	# plt.plot(list(range(400)), np.mean(num_new_comers[:, 1, two_better_mask], axis=(1,2)), label="newcomers")
+	# plt.legend()
+	# plt.savefig("newcomers_pls_two.png")
+	# breakpoint()
+	# plt.hist([one_period_overlaps[195, 1, :], two_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :],three_period_overlaps[195, 1, :] - one_period_overlaps[195, 1, :], four_period_overlaps[195, 1, :] - two_period_overlaps[195, 1, :]], label=["one period", "two", "three", "four"])
 	# plt.legend()
 	# plt.savefig("again_hist.png")
+	breakpoint()
+
+
+	# plt.plot(list(range(400)), np.mean(one_period_overlaps[:, 1, one_better_mask[0]], axis=(1)), label="one period")
+	# plt.plot(list(range(400)), np.mean(two_period_overlaps[:, 1, one_better_mask[0]], axis=(1)) - np.mean(one_period_overlaps[:, 1, one_better_mask[0]], axis=(1)), label="two period")
+	# plt.plot(list(range(400)), np.mean(three_period_overlaps[:, 1, one_better_mask[0]], axis=(1)) - np.mean(one_period_overlaps[:, 1, one_better_mask[0]], axis=(1)), label="three period")
+	# plt.plot(list(range(400)), np.mean(four_period_overlaps[:, 1, one_better_mask[0]], axis=(1)) - np.mean(two_period_overlaps[:, 1, one_better_mask[0]], axis=(1)), label="four period")
+
+	# plt.plot(list(range(400)), np.mean(num_new_comers[:, 1, one_better_mask[0]], axis=(1)), label="newcomers")
+	# plt.legend()
+	# plt.title("One > Two Single Instance")
+	# plt.savefig("newcomers_pls_one_single_inst.png")
+
+	# plt.clf()
+	# plt.plot(list(range(400)), np.mean(one_period_overlaps[:, 1, two_better_mask[0]], axis=(1)), label="one period")
+	# plt.plot(list(range(400)), np.mean(two_period_overlaps[:, 1, two_better_mask[0]], axis=(1)) - np.mean(one_period_overlaps[:, 1, two_better_mask[0]], axis=(1)), label="two period")
+	# plt.plot(list(range(400)), np.mean(three_period_overlaps[:, 1, two_better_mask[0]], axis=(1)) - np.mean(one_period_overlaps[:, 1, two_better_mask[0]], axis=(1)), label="three period")
+	# plt.plot(list(range(400)), np.mean(four_period_overlaps[:, 1, two_better_mask[0]], axis=(1)) - np.mean(two_period_overlaps[:, 1, two_better_mask[0]], axis=(1)), label="four period")
+	# plt.title("Two > One Single Instance")
+
+	# plt.plot(list(range(400)), np.mean(num_new_comers[:, 1, two_better_mask[0]], axis=(1)), label="newcomers")
+	# plt.legend()
+	# plt.savefig("newcomers_pls_two_single_inst.png")
 	# breakpoint()
 	import pickle
 	with open("/nethome/eguha3/SantoshHebbian/new_code_smooth_n_2p_con.pkl", "wb") as f:
