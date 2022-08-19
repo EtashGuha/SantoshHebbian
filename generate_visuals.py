@@ -324,10 +324,15 @@ def draw_interactions(name, data):
 		di = pickle.load(f)
 
 	
-	for cap_size_val_type in [1, 3, 10]:
+	for cap_size_val_type in [1, 3, 7, 10]:
 		betas = []
 		nneuronss = []
 		prob_twos = []
+		prob_ones = []
+		prob_threes = []
+		prob_fours = []
+		prob_fives = []
+		prob_sixes = []
 		cap_sizes = []
 		sparsity_vals = []
 		stds = []
@@ -348,7 +353,16 @@ def draw_interactions(name, data):
 			cap_sizes.append(cap_size)
 			list_of_vals = np.squeeze(np.asarray(di[key]))
 			means = np.mean(list_of_vals, axis=1)
+			prob_ones.append(means[0]/cap_size)
 			prob_twos.append((means[1] - means[0])/cap_size)
+			prob_threes.append((means[2] - means[0])/cap_size)
+			prob_fours.append((means[3] - means[1])/cap_size)
+			prob_fives.append((means[4] - means[0])/cap_size)
+			prob_sixes.append((means[5] - means[2] - means[1] + means[0])/cap_size)
+
+
+
+
 			prob_period = (list_of_vals[1] - list_of_vals[0])/cap_size
 			# print((means[1] - means[0])/cap_size)
 			# plt.clf()
@@ -358,10 +372,18 @@ def draw_interactions(name, data):
 			# breakpoint()
 			std = np.std(prob_period)
 			stds.append(std)
-		plt.plot(nneuronss, prob_twos, label=cap_size_val_type)
+		# breakpoint()
+		breakpoint()
+		plt.plot(nneuronss, prob_ones, label="1_{}".format(cap_size_val_type))
+		plt.plot(nneuronss, prob_twos, label="2_{}".format(cap_size_val_type))
+		plt.plot(nneuronss, prob_threes, label="3_{}".format(cap_size_val_type))
+		# plt.plot(nneuronss, prob_fours, label="4_{}".format(cap_size_val_type))
+		# plt.plot(nneuronss, prob_fives, label="5_{}".format(cap_size_val_type))
+		# plt.plot(nneuronss, prob_sixes, label="6_{}".format(cap_size_val_type))
+
 	# plt.xscale("log")
-	plt.xlabel("Number of Neurons")
-	plt.legend()
+	plt.xlabel("number of neurons")
+	plt.legend(title="periodicity")
 	plt.ylabel("prob of Two period")
 	plt.title("Prob of Two period for large n for given KP")
 	# plt.legend(title="cap size")

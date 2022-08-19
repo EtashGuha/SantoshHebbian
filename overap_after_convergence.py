@@ -36,6 +36,7 @@ def k_cap(input, cap_size):
 		np.put_along_axis(output, idx, 1, axis=-1)
 	return output
 
+
 class BrainNet():
 	def __init__(self, n_neurons, cap_size, n_rounds, sparsity, plasticity):
 		self.n_neurons = n_neurons
@@ -58,19 +59,26 @@ class BrainNet():
 		self.idx = np.zeros((self.n_rounds, self.cap_size), dtype=int)
 		self.activations = np.zeros((self.n_rounds, self.n_neurons))
 
-		self.idx[0] = np.arange(self.cap_size)
+		self.idx[0] = random.sample(range(self.n_neurons), self.cap_size)
 		self.activations[0][self.idx[0]] = 1
 		for t in range(self.n_rounds-1):
-			self.idx[t+1] = self.weights[self.idx[t]].sum(axis=0).argsort()[-self.cap_size:]
+			a = self.weights[self.idx[t]].sum(axis=0)
+			b =np.random.random(a.size)
+			self.idx[t+1] = np.lexsort(np.stack((b, a), axis=0))[-self.cap_size:]
+			# assert((a[np.argsort(a)[-self.cap_size:]] == a[self.idx[t+1]]).all())
+			# breakpoint()
 			self.activations[t+1][self.idx[t+1]] = 1
 			if update: 
 				self.update_weights(t)
+			
 		return self.activations
 	
 	def update_weights(self, step):
-
-		self.weights[np.ix_(self.idx[step], self.idx[step+1])] *= 1 + self.plasticity
-		self.weights *= self.adj
+		try:
+			self.weights[np.ix_(self.idx[step], self.idx[step+1])] *= 1 + self.plasticity
+			self.weights *= self.adj
+		except:
+			breakpoint()
 
 rounds_to_all = dict()
 all_values = []
@@ -119,6 +127,9 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 					two_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 2])))
 					three_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 3])))
 					four_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 4])))
+					five_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 5])))
+					six_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 6])))
+
 					break
 					if one_period_overlaps == []:
 						breakpoint()
@@ -137,19 +148,23 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 				# 		break	
 	# occurence_chart = [one_period_overlaps > period_threshold, two_period_overlaps > period_threshold, three_period_overlaps > period_threshold]
 	try:
-		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, num_new_comers)
+		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, num_new_comers)
 	except:
 		one_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 1])))
 		two_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 2])))
 		three_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 3])))
 		four_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 4])))
-		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, num_new_comers)
+		five_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 5])))
+		six_period_overlaps = len(outputs.intersection(set(all_outputs[round_idx - 6])))
+		return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, num_new_comers)
 if __name__ == '__main__':
 	rounds_to_all = dict()
 	total_dict = {}
 		
-	for n_neurons in [500]:
-		for cap_size_type in ["sqrt"]:
+	for n_neurons in [500, 750, 1000, 1250, 1500]:
+		# for cap_size in np.linspace(10, 250, 25):
+		# 	cap_size_type = "con"
+		for cap_size_type in ["con_25", "sqrt", "div"]:
 			if cap_size_type == "sqrt":
 				cap_size = int(np.sqrt(n_neurons))
 			elif "con" in cap_size_type:
@@ -157,13 +172,13 @@ if __name__ == '__main__':
 				print(cap_size)
 			elif cap_size_type == "div":
 				cap_size = int(n_neurons/20)
-			# for cap_size in [30]:
-			for beta in [1]:
-				for kp_val in [cap_size]:
+			
+			for beta in [.25]:
+				for k_div_pn_val in [1, 3, 7, 10]:
 					all_jobs = []
 					pool = mp.Pool(15)
-					params = [beta] * 1000
-					sparsity_val = kp_val/cap_size
+					params = [beta] * 500
+					sparsity_val = 1/k_div_pn_val * cap_size/np.log(n_neurons)
 					for val in params:
 						all_jobs.append(pool.apply_async(run_test, args=[beta, int(n_neurons), int(cap_size), sparsity_val]))
 						# run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
@@ -171,26 +186,32 @@ if __name__ == '__main__':
 					one_period_overlaps = []
 					two_period_overlaps = []
 					three_period_overlaps = []
-					occurence_chars = []
+					four_period_overlaps = []
+					five_period_overlaps = []
+					six_period_overlaps = []
+					num_newcomers = []
 
 					for job in tqdm(all_jobs):
-						one, two, three, four = job.get()
+						one, two, three, four, five, six, new_comers = job.get()
 						one_period_overlaps.append(one)
 						two_period_overlaps.append(two)
 						three_period_overlaps.append(three)
-						occurence_chars.append(four)
+						four_period_overlaps.append(four)
+						five_period_overlaps.append(five)
+						six_period_overlaps.append(six)
+						num_newcomers.append(new_comers)
 						
 						
 					
-					if (beta, cap_size_type, n_neurons, cap_size, kp_val) not in total_dict:
-						total_dict[(beta, cap_size_type, n_neurons, cap_size, kp_val)] = []
+					if (beta, cap_size_type, n_neurons, cap_size, k_div_pn_val) not in total_dict:
+						total_dict[(beta, cap_size_type, n_neurons, cap_size, k_div_pn_val)] = []
 					
-					total_dict[(beta, cap_size_type, n_neurons, cap_size, kp_val)].append((one_period_overlaps, two_period_overlaps, three_period_overlaps, occurence_chars))
+					total_dict[(beta, cap_size_type, n_neurons, cap_size, k_div_pn_val)].append((one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, num_newcomers))
 					pool.close()
 					pool.terminate()
 					pool.join()
 	import pickle
-	with open("/nethome/eguha3/SantoshHebbian/debug_p1.pkl", "wb") as f:
+	with open("/nethome/eguha3/SantoshHebbian/kdivpn.pkl", "wb") as f:
 		pickle.dump(total_dict, f)
 
 	

@@ -1,3 +1,4 @@
+from distutils.log import debug
 import numpy as np
 rng = np.random.default_rng()
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from tqdm import tqdm
 import time 
 import multiprocessing as mp
 import argparse
+import copy
 
 plt.rcParams.update({
 	"figure.facecolor":  (1.0, 1.0, 1.0, 1.0),  # red   with alpha = 30%
@@ -53,6 +55,59 @@ class BrainNet():
 		
 	def reset_weights(self):
 		self.weights = np.ones((self.n_neurons, self.n_neurons)) * self.adj
+		self.all_weights = np.empty((self.n_rounds, self.n_neurons, self.n_neurons))
+	def add_log(self):
+		all_vals = []
+		debug_cap_neuron_idxes = []
+		for round_idx in range(self.n_rounds):
+			cap_values = set(self.idx[round_idx])
+			first_present = []
+			debug_helper = []
+			graph = nx.DiGraph()
+			
+			for extra_idx in range(round_idx + 1):
+				found_neurons = cap_values.intersection(set(self.idx[extra_idx]))
+				if extra_idx not in graph.nodes() and extra_idx < 20:
+					graph.add_node(extra_idx)
+				if len(found_neurons) == 0:
+					continue
+				
+				
+				where_input = ""
+				if round_idx > 0:
+					prev_cap_info = debug_cap_neuron_idxes[-1]
+					for cap_idx, neuron_idxes in prev_cap_info:
+						weight_input = np.sum(self.all_weights[round_idx - 1][np.ix_(list(neuron_idxes), list(found_neurons))])/len(found_neurons)
+						if weight_input == 0:
+							continue
+						graph.add_edge(cap_idx, extra_idx, weight=int(100 * weight_input)/100)
+						where_input += "From Cap {}: {:.2f},".format(cap_idx, weight_input)
+				debug_helper.append((extra_idx, found_neurons))
+				
+
+				first_present.append(("Cap: {}".format(extra_idx), len(found_neurons), where_input))
+				cap_values = cap_values - found_neurons
+
+			
+			try:
+				# pos = nx.spring_layout(graph)
+				edge_labels = nx.get_edge_attributes(graph,'weight')
+				pos = nx.circular_layout(graph)
+				nx.draw_networkx_nodes(graph, pos)
+				nx.draw_networkx_labels(graph, pos)
+				nx.draw_networkx_edges(graph, pos, edgelist=graph.edges(), edge_color='r', arrows=True)
+				nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels)
+				plt.tight_layout()
+				plt.savefig("graph_images/{}.png".format(round_idx), format="PNG")
+				plt.clf()
+			except:
+				breakpoint()
+
+			debug_cap_neuron_idxes.append(debug_helper)
+			all_vals.append(first_present)
+
+		# breakpoint()
+		self.all_vals = all_vals
 			
 	def forward(self, update=False):	
 		self.idx = np.zeros((self.n_rounds, self.cap_size), dtype=int)
@@ -62,6 +117,7 @@ class BrainNet():
 		self.activations[0][self.idx[0]] = 1
 		for t in range(self.n_rounds-1):
 			a = self.weights[self.idx[t]].sum(axis=0)
+			self.all_weights[t] = copy.deepcopy(self.weights)
 			b =np.random.random(a.size)
 			self.idx[t+1] = np.lexsort(np.stack((b, a), axis=0))[-self.cap_size:]
 			assert((a[np.argsort(a)[-self.cap_size:]] == a[self.idx[t+1]]).all())
@@ -69,7 +125,7 @@ class BrainNet():
 			self.activations[t+1][self.idx[t+1]] = 1
 			if update: 
 				self.update_weights(t)
-			
+		self.add_log()
 		return self.activations
 	
 	def update_weights(self, step):
@@ -84,7 +140,7 @@ params = np.linspace(0, 1, num=1)
 def run_test(val, n_neurons, cap_size, sparsity_val):
 	tau = 0 
 	n_iter = 2
-	n_nets = 400
+	n_nets = 1
 	n_rounds = 400
 	n_inputs = 500
 	# print(n_rounds)
@@ -141,7 +197,7 @@ def run_test(val, n_neurons, cap_size, sparsity_val):
 				# 		break	
 	# occurence_chart = [one_period_overlaps > period_threshold, two_period_overlaps > period_threshold, three_period_overlaps > period_threshold]
 	
-	return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers)
+	return (one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps, five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers, net.all_vals)
 if __name__ == '__main__':
 	rounds_to_all = dict()
 	total_dict = {}
@@ -157,12 +213,12 @@ if __name__ == '__main__':
 				cap_size = int(n_neurons/20)
 			# for cap_size in [30]:
 			for beta in [1]:
-				for sparsity_val in [.9]:
+				for sparsity_val in [.2]:
 					all_jobs = []
 					pool = mp.Pool(15)
 					params = [beta]
 					for val in params:
-						one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps,five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers =run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
+						one_period_overlaps, two_period_overlaps, three_period_overlaps, four_period_overlaps,five_period_overlaps, six_period_overlaps, seven_period_overlaps, eight_period_overlaps, num_new_comers, all_vals =run_test(beta, int(n_neurons), int(cap_size), sparsity_val)
 					
 	import matplotlib.pyplot as plt
 
